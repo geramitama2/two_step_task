@@ -25,34 +25,37 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN);
 
 //Session Settings
-int forced = 0;
-int correct_side = 0;
 double degrees_per_led = 6.0; // wheel gain
-double common_transition_probability = .8;
 unsigned long incorrect_time = 3000;
 unsigned long second_step_length = 2000;
 unsigned long timeOut_period = 20000;
-double high_reward_prob = .85;
-double low_reward_prob = .15;
 int reward_delay = 100;
-int sol_open_time = 40;
-double switch_criteria_percent_accurate = .75;
-double forced_threshold_lower =.3;
-double forced_threshold_upper = .5;
-int plus_trials = 0;
+
 int save_to_sd = 1;   
 int behavior_dependent = 0; 
-int trials_completed_in_block = 0;
+
 int trials_in_block_low = 1;
 int trials_in_block_high = 4;
 int trials_in_block = random(trials_in_block_low,trials_in_block_high);
 double forced_percentage = .9;
 
+// daily session settings
+int forced = 0;
+int correct_side = 0;
+double common_transition_probability = .8;
+double high_reward_prob = .85;
+double low_reward_prob = .15;
+int sol_open_time = 40;
+double switch_criteria_percent_accurate = .75;
+double forced_threshold_lower =.3;
+double forced_threshold_upper = .5;
+int plus_trials = 0;
+int trials_completed_in_block = 0;
+
 
 int switch_criteria_trials_range_low = 15; 
 int switch_criteria_trials_range_high = 25; 
 int switch_criteria_trials = random(switch_criteria_trials_range_low,switch_criteria_trials_range_high+1);
-
 
 
 unsigned long ITI_setting = random(2000,4000);
