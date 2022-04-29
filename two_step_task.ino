@@ -30,14 +30,13 @@ unsigned long incorrect_time = 3000;
 unsigned long second_step_length = 2000;
 unsigned long timeOut_period = 20000;
 int reward_delay = 100;
-
-int save_to_sd = 1;   
-int behavior_dependent = 0; 
-
 int trials_in_block_low = 1;
 int trials_in_block_high = 4;
 int trials_in_block = random(trials_in_block_low,trials_in_block_high);
+
 double forced_percentage = .9;
+int behavior_dependent = 0; 
+int save_to_sd = 1;   
 
 // daily session settings
 int forced = 0;
@@ -74,6 +73,7 @@ int toneB_pin = 11;
 int patternA_tone_freq = 3000;
 int patternB_tone_freq = 9000;
 int solenoid_pin = 8;
+int rebound_delay_time = 200; // for forced trials, this is the miminum elapsed time needed before a new turn direction is registered by the encoder
 
 // LED screen variables
 int initial_led_pos = 0;
@@ -126,6 +126,9 @@ int trials_since_switch = 0;
 int enable_switch = 0;
 int extra_trials = 0;
 int solonoid_open = 0;
+int last_turned_right_ts;
+int last_turned_left_ts;
+
 Encoder myEnc(2,3);
 
 // SD variables and settings
@@ -306,7 +309,7 @@ void loop() {
         
       case 3:
         fix_encoder();
-        enc_val = force_encoder(forced,correct_side,last_enc_val,myEnc.read()); 
+        enc_val = force_encoder(forced,correct_side,last_enc_val,myEnc.read(),t); 
         led_pos = 119 +get_led_position(((360.0*enc_val))/resolution,degrees_per_led,pixels);
         led_pos = constrain(led_pos,left_bounds,right_bounds); 
         verticalLinesOn(led_pos);
@@ -737,26 +740,34 @@ void patternB() {
   strip.show();
 }
 
-int force_encoder(int forced, int side,int last_enc_val,int current_enc_val){
+int force_encoder(int forced, int side,int last_enc_val,int current_enc_val,unsigned long t){
   if(forced==1){
     if(side==0){//need to turn left, encoder value must decrease
-      if(last_enc_val<current_enc_val){//if the last enc value is smaller than current(value is increasing) write last_enc_val to encoder
+      if(last_enc_val+1<current_enc_val){//if the last enc value is smaller than current(value is increasing) write last_enc_val to encoder
+        myEnc.write(last_enc_val+1);
+        last_turned_right_ts=t;
+        return last_enc_val;
+      }
+      if(last_enc_val>current_enc_val and t-last_turned_right_ts>rebound_delay_time){
+        myEnc.read();
+        return current_enc_val;
+      }else{
         myEnc.write(last_enc_val+1);
         return last_enc_val;
       }
-      else{
-        myEnc.read();
-        return current_enc_val;
-      }
     }
-    if(side==1){//need to turn left, encoder value must decrease
-      if(last_enc_val>current_enc_val){//if the last enc value is smaller than current(value is increasing) write last_enc_val to encoder
-        myEnc.write(last_enc_val-1);//for some reason, we need to have this +/- 1 so that it doesn't update the encoder value
+    if(side==1){//need to turn right, encoder value must increase
+      if(last_enc_val-1>current_enc_val){// value is decreasing
+        myEnc.write(last_enc_val-1);
+        last_turned_left_ts=t;
         return last_enc_val;
       }
-      else{
+      if(last_enc_val<current_enc_val and t-last_turned_left_ts>rebound_delay_time){
         myEnc.read();
         return current_enc_val;
+      }else{
+        myEnc.write(last_enc_val-1);
+        return last_enc_val;
       }
     }
   }
