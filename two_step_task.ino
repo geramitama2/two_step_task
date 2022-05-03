@@ -25,59 +25,65 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN);
 
 //Session Settings
-double degrees_per_led = 6.0; // wheel gain
-unsigned long incorrect_time = 3000;
-unsigned long second_step_length = 2000;
-unsigned long timeOut_period = 20000;
-int reward_delay = 100;
-int trials_in_block_low = 1;
-int trials_in_block_high = 4;
-int trials_in_block = random(trials_in_block_low,trials_in_block_high);
+double degrees_per_led = 3.0; // wheel gain
+unsigned long timeout_time = 3000; // The time that is elapsed while the timeout tone is playing
+unsigned long second_step_length = 4000; // the time that the second_step plays for
+unsigned long timeOut_period = 20000; // the amount of time a mouse has to make a decision before the trial is timed_out
+int reward_delay = 100; // The amout of time between the second step and reward deliver
+int trials_in_block_low = 1; // the lowest number of trials in a block
+int trials_in_block_high = 5; // the highest number of trials in a block
+int trials_in_block = random(trials_in_block_low,trials_in_block_high + 1);
 
-double forced_percentage = .9;
-int behavior_dependent = 0; 
-int save_to_sd = 1;   
+double forced_percentage = 1; // the likelihood that a forced trial will occur. Range : 0 - 1.0
+int behavior_dependent = 0;  // a variable that determines whether forced trials are dependent on behavior(1) or not(0)
+int save_to_sd = 0; // a variable that determines whether or not an SD card will be saved to
+
+// Threshold Values
+int number_of_switches_threshold = 20; // max number of switches                                                                                                                           
+int consecutive_timeOut_threshold = 20; //max number of consecutive timeouts
+int trial_limit = 15; // max number of trials
+unsigned long session_time_threshold = 2*60000; // max time of session in ms
 
 // daily session settings
-int forced = 0;
-int correct_side = 0;
-double common_transition_probability = .8;
-double high_reward_prob = .85;
-double low_reward_prob = .15;
-int sol_open_time = 40;
-double switch_criteria_percent_accurate = .75;
-double forced_threshold_lower =.3;
-double forced_threshold_upper = .5;
-int plus_trials = 0;
-int trials_completed_in_block = 0;
+int correct_side = random(0,2); // determines which side is the correct side initially
+double common_transition_probability = .8; // determines the likelihood that a common transition occurs from a correct turn
+double high_reward_prob = 1; // likelihood of getting a reward after turning wheel to the correct_side
+double low_reward_prob = 1; // likelihood of gettign a reward after turning the wheel to the incorrect side
+int sol_open_time = 40; // length of time that the solenoid valve is open for
+
+double switch_criteria_percent_accurate = .8; // the accuracy percentage required to enable a block switch and cause the correct side to change
+double forced_threshold_lower =.3; // forced trials will be enabled under this accuracy percentage (range 0-1)
+double forced_threshold_upper = .5; // forced trials will be disabled above this accuracy percentage (range 0-1)
+
+int plus_trials = 0; // the number of additional trials that will take place after a block switch has been enabled
 
 
-int switch_criteria_trials_range_low = 15; 
-int switch_criteria_trials_range_high = 25; 
-int switch_criteria_trials = random(switch_criteria_trials_range_low,switch_criteria_trials_range_high+1);
+int switch_criteria_trials_range_low = 15; // the lower bound number of trials in a block when behavior_dependent ==1
+int switch_criteria_trials_range_high = 25;  // the upper bound number of trials in a block when behavior_dependent == 1
+int switch_criteria_trials = random(switch_criteria_trials_range_low,switch_criteria_trials_range_high+1); // randomizes the number of trials in a block according to the range defined above
 
 
-unsigned long ITI_setting = random(2000,4000);
+unsigned long ITI_setting = random(2000,4000); // a random interval of time between 2-4s for intertrial intervals
 unsigned long ITI = ITI_setting;
-double percent_correct = 0.5;
+double percent_correct = 0.5; // moving average variables for phase 8
 double weight_avg = 0.8825;
 double weight_data = 1 - weight_avg; 
 
 
 // hardware settings
-double resolution = 3250; // for encoder
-uint32_t white = strip.Color(255, 255, 255);
-int pixels = 16;
-int toneA_pin = 12;
-int toneB_pin = 11;
-int patternA_tone_freq = 3000;
-int patternB_tone_freq = 9000;
-int solenoid_pin = 8;
+int forced; //variable that stores the forced trial state
+double resolution = 3250; // for the encoder to take gain into account. The resolution will be different for every rotary encoder 
+uint32_t white = strip.Color(255, 255, 255); // defining what a white colored pixel looks like on a neopixel
+int pixels = 16; // the number of pixels horizontally on the neopixel
+int toneA_pin = 12; // the pin number for speaker 1
+int toneB_pin = 11; // the pin number for speaker 2
+int patternA_tone_freq = 3000; // the tone frequency for pattern A
+int patternB_tone_freq = 9000; // the tone frequency for pattern B
+int solenoid_pin = 8; // the reward solenoid pin-number
 int rebound_delay_time = 200; // for forced trials, this is the miminum elapsed time needed before a new turn direction is registered by the encoder
 
 // LED screen variables
-int initial_led_pos = 0;
-int led_pos = 0;
+int led_pos = 0; // initializing the led
 int last_led_pos = 0;
 int left_bounds = 112; // pixel value for left bounds
 int right_bounds = 127; // pixel value for right bounds
@@ -86,19 +92,10 @@ int right_bounds = 127; // pixel value for right bounds
 
 
 // time variables
-unsigned long t;
-unsigned long t_1;
+unsigned long t; // the continuous timestamp variable
+unsigned long t_1; // the "last_timestamp" variable
 unsigned long loop_time=0;
 unsigned long sample_time = 10; //ms                                                                                                                              
-
-
-// Threshold Values
-int number_of_switches_threshold = 20;                                                                                                                           
-int consecutive_timeOut_threshold = 20; 
-int trial_limit = 600;
-unsigned long session_time_threshold = 90*60000;
-
-
 
 // Session Variables - These variables will change according to behavior
 int number_of_switches=0;
@@ -126,8 +123,10 @@ int trials_since_switch = 0;
 int enable_switch = 0;
 int extra_trials = 0;
 int solonoid_open = 0;
-int last_turned_right_ts;
-int last_turned_left_ts;
+unsigned long last_turned_right_ts;
+unsigned long last_turned_left_ts;
+int trials_completed_in_block = 0; // the number of trials that have been completed in a block.
+
 
 Encoder myEnc(2,3);
 
@@ -145,7 +144,7 @@ int ct = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-//  lcd.begin();
+  lcd.begin();
   lcd.backlight();
   randomSeed(analogRead(R));
   pinMode(7,INPUT_PULLUP);
@@ -225,7 +224,6 @@ void setup() {
       params.println("timeOut_period:"+String(timeOut_period));
       params.println("quiescent_period:"+String(quiescent_period));
       params.println("second_step_length:"+String(second_step_length));
-      params.println("incorrect_time:"+String(incorrect_time));
       params.println("reward_delay:"+String(reward_delay));
       params.println("ITI_setting:"+String(ITI_setting));
       params.println("degrees_per_led:"+String(degrees_per_led));  
@@ -247,7 +245,9 @@ void setup() {
       params.println("low_reward_prob:"+String(low_reward_prob));
       params.println("plus_trials:"+String(plus_trials));   
       params.println("switch_criteria_trials_range_low:"+String(switch_criteria_trials_range_low));    
-      params.println("switch_criteria_trials_range_high:"+String(switch_criteria_trials_range_high));    
+      params.println("switch_criteria_trials_range_high:"+String(switch_criteria_trials_range_high));
+      params.println("behavior_dependent:"+String(behavior_dependent));        
+      params.println("forced_percentage:"+String(forced_percentage));        
            
       params.close();
     }
@@ -308,10 +308,11 @@ void loop() {
         break;
         
       case 3:
-        fix_encoder();
+        fix_encoder();// Adjusts encoder to take into account gain
         enc_val = force_encoder(forced,correct_side,last_enc_val,myEnc.read(),t); 
         led_pos = 119 +get_led_position(((360.0*enc_val))/resolution,degrees_per_led,pixels);
         led_pos = constrain(led_pos,left_bounds,right_bounds); 
+        Serial.println(enc_val);
         verticalLinesOn(led_pos);
         
         if (last_led_pos!=led_pos){
@@ -389,7 +390,7 @@ void loop() {
         break;
       case 4: 
         tone(toneA_pin,random(4000,8000),10);
-        if ((t-t_1)>=incorrect_time) {
+        if ((t-t_1)>=timeout_time) {
           t_1 = t;   
           phase = 8; 
           strip.clear();
@@ -452,14 +453,17 @@ void loop() {
       case 8:
         
         if ((t-t_1) >= ITI) {
+          trials_completed_in_block++;
           if (behavior_dependent == 0 and trials_completed_in_block>trials_in_block){
             // if trials in block==block_trials, switch
+            trials_completed_in_block = 0;
             trials_in_block = random(trials_in_block_low,trials_in_block_high);
             if(correct_side ==0){
               correct_side = 1;
             }else{
               correct_side = 0;
             }
+            number_of_switches ++;       
           }
           
           // block switches are dependent on behavior
@@ -478,13 +482,7 @@ void loop() {
                 lcd.print("Switch Enabled");
               }
     
-              if (forced == 0 and percent_correct <= (forced_threshold_lower)) {
-                forced = 1;
-              }
-    
-              if (forced == 1 and percent_correct >= (forced_threshold_upper)) {
-                forced = 0;
-              }
+
             }
   
             if (enable_switch == 1) {
@@ -507,10 +505,16 @@ void loop() {
               }
             }
           }
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print(String(trial_number) + " " + String(number_of_switches) + " " + String(trials_since_switch) + " " + String(percent_correct) + " " + String(extra_trials));
-          
+
+          if (behavior_dependent==1){
+            lcd.clear();
+            lcd.setCursor(0,0);
+            lcd.print(String(trial_number) + " " + String(number_of_switches) + " " + String(trials_since_switch) + " " + String(percent_correct) + " " + String(extra_trials));
+          }else{
+            lcd.clear();
+            lcd.setCursor(0,0);   
+            lcd.print(String(trial_number) + " " + String(number_of_switches) + " " +String(trials_completed_in_block) + " "+ String(trials_in_block) + " " + String((session_time_threshold-t)/1000));
+          }
           
           strip.clear();
           strip.show();
@@ -743,30 +747,30 @@ void patternB() {
 int force_encoder(int forced, int side,int last_enc_val,int current_enc_val,unsigned long t){
   if(forced==1){
     if(side==0){//need to turn left, encoder value must decrease
-      if(last_enc_val+1<current_enc_val){//if the last enc value is smaller than current(value is increasing) write last_enc_val to encoder
-        myEnc.write(last_enc_val+1);
+      if(last_enc_val<current_enc_val){//if the last enc value is smaller than current(current_enc_val is increasing) write last_enc_val to encoder
+        myEnc.write(last_enc_val);
         last_turned_right_ts=t;
         return last_enc_val;
       }
-      if(last_enc_val>current_enc_val and t-last_turned_right_ts>rebound_delay_time){
+      if(last_enc_val>current_enc_val and t-last_turned_right_ts>rebound_delay_time){ //if the last enc val is larger than current(current_enc_val is decreasing) read current_enc
         myEnc.read();
         return current_enc_val;
-      }else{
-        myEnc.write(last_enc_val+1);
+      }else{ // if the last_enc_val is larger than current_enc_val but rebound_delay_time has not elapsed, write last_enc_val to encoder
+        myEnc.write(last_enc_val);
         return last_enc_val;
       }
     }
     if(side==1){//need to turn right, encoder value must increase
-      if(last_enc_val-1>current_enc_val){// value is decreasing
-        myEnc.write(last_enc_val-1);
+      if(last_enc_val>current_enc_val){// if last enc value is larger than current(current_enc_val is decreasing) write last_enc_val to encoder
+        myEnc.write(last_enc_val);
         last_turned_left_ts=t;
         return last_enc_val;
       }
-      if(last_enc_val<current_enc_val and t-last_turned_left_ts>rebound_delay_time){
+      if(last_enc_val<current_enc_val and t-last_turned_left_ts>rebound_delay_time){ //if the last enc val is less than current(current_enc_val is increasing) read current_enc
         myEnc.read();
         return current_enc_val;
       }else{
-        myEnc.write(last_enc_val-1);
+        myEnc.write(last_enc_val);
         return last_enc_val;
       }
     }
