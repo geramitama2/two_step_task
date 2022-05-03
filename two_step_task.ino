@@ -125,8 +125,6 @@ int extra_trials = 0;
 int solonoid_open = 0;
 unsigned long last_turned_right_ts;
 unsigned long last_turned_left_ts;
-int trials_completed_in_block = 0; // the number of trials that have been completed in a block.
-
 
 Encoder myEnc(2,3);
 
@@ -453,10 +451,9 @@ void loop() {
       case 8:
         
         if ((t-t_1) >= ITI) {
-          trials_completed_in_block++;
-          if (behavior_dependent == 0 and trials_completed_in_block>trials_in_block){
+          if (behavior_dependent == 0 and trials_since_switch>trials_in_block){
             // if trials in block==block_trials, switch
-            trials_completed_in_block = 0;
+            trials_since_switch = 0;
             trials_in_block = random(trials_in_block_low,trials_in_block_high);
             if(correct_side ==0){
               correct_side = 1;
@@ -513,7 +510,7 @@ void loop() {
           }else{
             lcd.clear();
             lcd.setCursor(0,0);   
-            lcd.print(String(trial_number) + " " + String(number_of_switches) + " " +String(trials_completed_in_block) + " "+ String(trials_in_block) + " " + String((session_time_threshold-t)/1000));
+            lcd.print(String(trial_number) + " " + String(number_of_switches) + " " +String(trials_since_switch) + " "+ String(trials_in_block) + " " + String((session_time_threshold-t)/1000));
           }
           
           strip.clear();
