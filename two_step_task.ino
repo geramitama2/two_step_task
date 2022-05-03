@@ -264,6 +264,7 @@ void loop() {
     t = millis();
     if(t-loop_time>=sample_time){
       loop_time=t;
+      // end criteria
       if (number_of_switches >= number_of_switches_threshold or t>session_time_threshold or consecutive_timeOut>=consecutive_timeOut_threshold or trial_number>=trial_limit){
         phase = 0;
         done = 1;
@@ -306,17 +307,19 @@ void loop() {
         break;
         
       case 3:
-        fix_encoder();// Adjusts encoder to take into account gain
-        enc_val = force_encoder(forced,correct_side,last_enc_val,myEnc.read(),t); 
+        fix_encoder();// Adjusts encoder to take wheel gain into account gain
+        enc_val = force_encoder(forced,correct_side,last_enc_val,myEnc.read(),t); // forces the encoder in 1 direction if it is a forced trial
         led_pos = 119 +get_led_position(((360.0*enc_val))/resolution,degrees_per_led,pixels);
-        led_pos = constrain(led_pos,left_bounds,right_bounds); 
-        Serial.println(enc_val);
+        led_pos = constrain(led_pos,left_bounds,right_bounds); // provides constraints on the maximum/minimum position of the LED
+//        Serial.println(enc_val);
+        // turning on the vertical lines
         verticalLinesOn(led_pos);
-        
+        // turning off the vertical lines of the previous led placement
         if (last_led_pos!=led_pos){
             verticalLinesOff(last_led_pos);
             strip.show();
         }
+        // resetting the last enc and last led pos values to the current values
         last_enc_val = enc_val;
         last_led_pos = led_pos;
         
@@ -341,11 +344,11 @@ void loop() {
           if (correct_side == 0) {// left side is correct side
             last_led_pos = 0;
             led_pos = 0;
-            second_state = transition_assignment(turn,100*common_transition_probability,forced); 
+            second_state = transition_assignment(turn,100*common_transition_probability,forced); // turns on the second_state_transition
            
              if (turn == 0) {
               Serial.println("Correct Choice!");
-              //correct_trials +=1;
+              correct_trials +=1;
               correct = 1;  
              }
              if (turn == 1) {
@@ -354,7 +357,7 @@ void loop() {
               correct = 0;
              }
           }
-          if (correct_side == 1) {
+          if (correct_side == 1) { // right side is correct side
             last_led_pos = 0;
             led_pos = 0;
             second_state = transition_assignment(turn,100*common_transition_probability,forced); 
@@ -365,16 +368,16 @@ void loop() {
               correct = 0;
             }
             if (turn == 1) {
-            Serial.println("Correct Choice!");
-            //correct_trials +=1;
-            correct = 1;
+              Serial.println("Correct Choice!");
+              correct_trials +=1;
+              correct = 1;
             }
           }
           break;
         }
         if((t-t_1)>=timeOut_period) {//timeout
-          correct = 2;
-          consecutive_timeOut++;
+          correct = 2; // correct = 2 indicates a timeout
+          consecutive_timeOut++; // iterates the number of consecutive_timeouts, which will be reset upon a non-timeout
           timeOut_trials +=1;
           strip.clear();
           strip.show();
@@ -387,7 +390,7 @@ void loop() {
         }
         break;
       case 4: 
-        tone(toneA_pin,random(4000,8000),10);
+        tone(toneA_pin,random(4000,8000),10); // white noise tone is played for the duration of timeout_time
         if ((t-t_1)>=timeout_time) {
           t_1 = t;   
           phase = 8; 
@@ -398,7 +401,7 @@ void loop() {
         break;
         
       case 5:
-        reward_roll = random(0,101);
+        reward_roll = random(0,101); // every reward_eligible wheel turn will have a reward probability roll
         
         // if the second state == optimal side, reward_prob is high
         if(second_state == correct_side){
@@ -408,24 +411,24 @@ void loop() {
         }
         
         if ((t-t_1) >= second_step_length) {
-            strip.clear();
-            strip.show();
-            t_1 = t; 
+          strip.clear();
+          strip.show();
+          t_1 = t; 
              
-        if(reward_roll<reward_prob*100.0){
-            phase = 6;
-            reward =1;
-
-            Serial.println("Reward!");
-         }
-        else{
-              phase = 8;
-              reward = 0;
-              Serial.println("No Reward");
-            }
-            
-        lcd.setCursor(0,1);
-        lcd.print(String(correct_side) + " " + String(turn) + " " + String(transition) + " " + String(reward) + " " + String(forced));
+          if(reward_roll<reward_prob*100.0){
+              phase = 6;
+              reward =1;
+  
+              Serial.println("Reward!");
+           }
+          else{
+                phase = 8;
+                reward = 0;
+                Serial.println("No Reward");
+              }
+              
+          lcd.setCursor(0,1);
+          lcd.print(String(correct_side) + " " + String(turn) + " " + String(transition) + " " + String(reward) + " " + String(forced));
         }
 
         break;
@@ -443,8 +446,6 @@ void loop() {
          digitalWrite(solenoid_pin, LOW);
          phase = 8;
          t_1= t;
-         correct_trials +=1;
-         //Serial.println("ITI start at: " + String(t));
          }
         break;
         
@@ -452,7 +453,7 @@ void loop() {
         
         if ((t-t_1) >= ITI) {
           if (behavior_dependent == 0 and trials_since_switch>trials_in_block){
-            // if trials in block==block_trials, switch
+            // if trials_since_switch>block_trials, switch
             trials_since_switch = 0;
             trials_in_block = random(trials_in_block_low,trials_in_block_high);
             if(correct_side ==0){
@@ -465,13 +466,13 @@ void loop() {
           
           // block switches are dependent on behavior
           if (behavior_dependent == 1){ 
-            if (correct != 2) {
+            if (correct != 2) {//if the trials wasn't a timeout, calculate the percent_correct
               percent_correct = (percent_correct * weight_avg) + (correct * weight_data);
              } 
              Serial.println();
              Serial.println("Perc Correct: " + String(100*percent_correct));
   
-            if (trials_since_switch>=switch_criteria_trials and enable_switch==0) {
+            if (trials_since_switch>=switch_criteria_trials and enable_switch==0) {//enable switch if enough trials have occured, and percent_correct is high enougb
               if (percent_correct>=switch_criteria_percent_accurate) {
                 enable_switch = 1;
                 lcd.clear();
@@ -483,13 +484,14 @@ void loop() {
             }
   
             if (enable_switch == 1) {
-              if (extra_trials < plus_trials) { extra_trials++; }
-              if (extra_trials >= plus_trials){
+              if (extra_trials < plus_trials) { extra_trials++; } // if the switch is enabled but extra_trials<plus_trials, iterate extra_trials(keeping block switch enabled)
+              if (extra_trials >= plus_trials){//switch if entra_trials criteria is met
                 if (correct_side == 0){
                   correct_side = 1;
                 }else{
                   correct_side = 0;
                 }
+                //randomly set the number of trials in the next block
                 switch_criteria_trials = random(switch_criteria_trials_range_low,switch_criteria_trials_range_high+1);
                 Serial.println("New Block Achieved!");
                 lcd.clear();
@@ -503,6 +505,7 @@ void loop() {
             }
           }
 
+          //give different LCD printouts to different behavior_dependent types
           if (behavior_dependent==1){
             lcd.clear();
             lcd.setCursor(0,0);
@@ -512,7 +515,8 @@ void loop() {
             lcd.setCursor(0,0);   
             lcd.print(String(trial_number) + " " + String(number_of_switches) + " " +String(trials_since_switch) + " "+ String(trials_in_block) + " " + String((session_time_threshold-t)/1000));
           }
-          
+
+          // resetting state values
           strip.clear();
           strip.show();
           trial_number++;
